@@ -9,21 +9,24 @@ terraform {
     bucket = "kataka-state-bucket-001"
     key    = "kataka.tfstate"
     region = "us-east-1"
+    dynamodb_table = "terraform_locks"
+
   }
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
 
 # ====================== VPC ==================
 resource "aws_vpc" "kataka_vpc" {
-  cidr_block       = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
 
   tags = {
-    Name = "kataka_vpc"
+    Name = var.vpc_tag
+
   }
 }
 
@@ -33,39 +36,39 @@ resource "aws_internet_gateway" "kataka_igw" {
   vpc_id = aws_vpc.kataka_vpc.id
 
   tags = {
-    Name = "kataka_igw"
+    Name = var.kataka_igw
   }
 }
 
 
 # ====================== Subnets ==================
 resource "aws_subnet" "kataka_public_subnet_1_1a" {
-  vpc_id     = aws_vpc.kataka_vpc.id
-  cidr_block = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
+  vpc_id            = aws_vpc.kataka_vpc.id
+  cidr_block        = var.subnet1_cidr
+  availability_zone = var.subnet1_az
 
   tags = {
-    Name = "kataka_public_subnet_1_1a"
+    Name = var.subnet1_tag
   }
 }
 
 resource "aws_subnet" "kataka_public_subnet_2_1a" {
-  vpc_id     = aws_vpc.kataka_vpc.id
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "us-east-1a"
+  vpc_id            = aws_vpc.kataka_vpc.id
+  cidr_block        = var.subnet2_cidr
+  availability_zone = var.subnet2_az
 
   tags = {
-    Name = "kataka_public_subnet_2_1a"
+    Name = var.subnet2_tag
   }
 }
 
 resource "aws_subnet" "kataka_public_subnet_3_1b" {
-  vpc_id     = aws_vpc.kataka_vpc.id
-  cidr_block = "10.0.3.0/24"
-  availability_zone = "us-east-1b"
+  vpc_id            = aws_vpc.kataka_vpc.id
+  cidr_block        = var.subnet3_cidr
+  availability_zone = var.subnet3_az
 
   tags = {
-    Name = "kataka_public_subnet_3_1b"
+    Name = var.subnet3_tag
   }
 }
 
@@ -74,12 +77,12 @@ resource "aws_route_table" "kataka_public_route_table" {
   vpc_id = aws_vpc.kataka_vpc.id
 
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block = var.kataka_rt_cidr
     gateway_id = aws_internet_gateway.kataka_igw.id
   }
 
   tags = {
-    Name = "kataka_public_route_table"
+    Name = var.kataka_rt_tag
   }
 }
 
@@ -162,6 +165,6 @@ resource "aws_security_group" "kataka_security_group" {
   }
 
   tags = {
-    Name = "kataka_security_group"
+    Name = var.kataka_sg_tag
   }
 }
