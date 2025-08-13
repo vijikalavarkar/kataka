@@ -37,15 +37,6 @@ resource "aws_internet_gateway" "kataka_igw" {
   }
 }
 
-## ==================== TESTER-IGW ==================
-resource "aws_internet_gateway" "kataka_tester_igw" {
-  vpc_id = data.aws_vpc.tester_vpc.id
-
-  tags = {
-    Name = "kataka_tester_igw"
-  }
-}
-
 
 # ====================== Subnets ==================
 resource "aws_subnet" "kataka_public_subnet_1_1a" {
