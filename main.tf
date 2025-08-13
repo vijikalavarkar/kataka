@@ -9,7 +9,6 @@ terraform {
     bucket = "kataka-state-bucket-001"
     key    = "kataka.tfstate"
     region = "us-east-1"
-    use_lockfile = true
   }
 }
 
@@ -17,153 +16,63 @@ provider "aws" {
   region = var.aws_region
 }
 
+# VPC
+module "vpc" {
+  source = "./modules/vpc"
+  vpc_cidr = var.vpc_cidr
+  vpc_tag  = var.vpc_tag
+}
 
-# ====================== VPC ==================
-resource "aws_vpc" "kataka_vpc" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = var.vpc_tag
-
-  }
+# IGW
+module "igw" {
+  source = "./modules/igw"
+  vpc_id = module.vpc.vpc_id
+  igw_tag = var.igw_tag
 }
 
 
-# ====================== Internet Gateway ==================
-resource "aws_internet_gateway" "kataka_igw" {
-  vpc_id = aws_vpc.kataka_vpc.id
-
-  tags = {
-    Name = var.kataka_igw
-  }
+module "subnet" {
+  source = "./modules/subnets"
+  vpc_id = module.vpc.vpc_id
+  subnet1_cidr = var.subnet1_cidr
+  subnet1_tag = var.subnet1_tag
+  subnet2_cidr = var.subnet2_cidr
+  subnet2_tag = var.subnet2_tag
+  subnet3_cidr = var.subnet3_cidr
+  subnet3_tag = var.subnet3_tag
 }
 
 
-# ====================== Subnets ==================
-resource "aws_subnet" "kataka_public_subnet_1_1a" {
-  vpc_id            = aws_vpc.kataka_vpc.id
-  cidr_block        = var.subnet1_cidr
-  availability_zone = var.subnet1_az
-
-  tags = {
-    Name = var.subnet1_tag
-  }
+module "route_table" {
+  source = "./modules/route_table"
+  vpc_id = module.vpc.vpc_id
+  public_route_table_cidr = var.public_route_table_cidr
+  igw_id = module.igw.igw_id
+  kataka_rt_tag = var.public_route_table_tag
 }
 
-resource "aws_subnet" "kataka_public_subnet_2_1a" {
-  vpc_id            = aws_vpc.kataka_vpc.id
-  cidr_block        = var.subnet2_cidr
-  availability_zone = var.subnet2_az
-
-  tags = {
-    Name = var.subnet2_tag
-  }
+module "route_table_association" {
+  source = "./modules/route_table_association"
+  subnet1_id = module.subnet.subnet_id_1
+  subnet2_id = module.subnet.subnet_id_2
+  subnet3_id = module.subnet.subnet_id_3
+  route_table_id = module.route_table.route_table_id
 }
 
-resource "aws_subnet" "kataka_public_subnet_3_1b" {
-  vpc_id            = aws_vpc.kataka_vpc.id
-  cidr_block        = var.subnet3_cidr
-  availability_zone = var.subnet3_az
 
-  tags = {
-    Name = var.subnet3_tag
-  }
+module "security_group" {
+  source = "./modules/security_group"
+  vpc_id = module.vpc.vpc_id
+  security_group_tag = var.security_group_tag
 }
 
-#  ====================== Route Table ==================
-resource "aws_route_table" "kataka_public_route_table" {
-  vpc_id = aws_vpc.kataka_vpc.id
-
-  route {
-    cidr_block = var.kataka_rt_cidr
-    gateway_id = aws_internet_gateway.kataka_igw.id
-  }
-
-  tags = {
-    Name = var.kataka_rt_tag
-  }
+module "ec2" {
+  source = "./modules/ec2"
+  subnet_id = module.subnet.subnet_id_1
+  security_group_id = module.security_group.security_group_id
+  ami = var.ami
+  instance_type = var.instance_type
+  instance_tag = var.instance_tag
 }
 
-# ====================== Route Table Association ==================
-resource "aws_route_table_association" "kataka_public_route_table_association_1" {
-  subnet_id      = aws_subnet.kataka_public_subnet_1_1a.id
-  route_table_id = aws_route_table.kataka_public_route_table.id
-}
 
-resource "aws_route_table_association" "kataka_public_route_table_association_2" {
-  subnet_id      = aws_subnet.kataka_public_subnet_2_1a.id
-  route_table_id = aws_route_table.kataka_public_route_table.id
-}
-
-resource "aws_route_table_association" "kataka_public_route_table_association_3" {
-  subnet_id      = aws_subnet.kataka_public_subnet_3_1b.id
-  route_table_id = aws_route_table.kataka_public_route_table.id
-}
-
-# ====================== Security Group ==================
-resource "aws_security_group" "kataka_security_group" {
-  name        = "kataka_security_group"
-  description = "Allow TLS inbound traffic and all outbound traffic"
-  vpc_id      = aws_vpc.kataka_vpc.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = var.kataka_sg_tag
-  }
-}
