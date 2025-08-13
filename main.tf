@@ -9,8 +9,7 @@ terraform {
     bucket = "kataka-state-bucket-001"
     key    = "kataka.tfstate"
     region = "us-east-1"
-    dynamodb_table = "terraform_locks"
-
+    dynamodb_table = "terraform-state-lock"
   }
 }
 
